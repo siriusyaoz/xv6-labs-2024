@@ -4,6 +4,7 @@
 #include "kernel/param.h"
 
 #define BUFSIZE 512
+//tests
 //(echo 1 ; echo 2) | xargs echo
 // cat xargstest.sh | xargs echo
 // echo hello too | xargs echo bye
@@ -36,7 +37,7 @@ int main(int argc, char *argv[]) {
         char *p = buf;
         char *end = buf + n;
         while (p < end) {
-            char *start = p;
+            char *start = p; // satrt会跳过空格，总是在单词的第一个位置
             int end_of_line=0;
             while (p < end && *p != '\n' && *p != ' ') p++;
 
@@ -46,7 +47,7 @@ int main(int argc, char *argv[]) {
                     exit(1);
                 }
                 if(*p =='\n'){
-                    end_of_line=1;
+                    end_of_line=1;//注意下一行就已经将*p赋值为'\0'了,必须在这里保存换行的信息
                 }
                 *p = '\0';
                 args[arg_count] = malloc(p - start + 1);
@@ -70,7 +71,7 @@ int main(int argc, char *argv[]) {
             p++;
         }
     }
-
+//防止read得到的最后一个字符不是\n,似乎不是必要的？
     if (arg_count > argc - 1) {
         args[arg_count] = 0;
         execute(args);
