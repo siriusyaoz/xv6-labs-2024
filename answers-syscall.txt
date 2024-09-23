@@ -1,0 +1,8 @@
+usertrap()
+0x7 sys_exec
+scause=0xd sepc=0x80001c92 stval=0x0 USERMODE
+num is in register a3
+scause=0xd means load page fault
+0x0 is not in the kernel address space
+initcode pid=1
+究竟是怎样跳转到kerneltrap的？
