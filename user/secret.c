@@ -11,10 +11,14 @@ main(int argc, char *argv[])
     printf("Usage: secret the-secret\n");
     exit(1);
   }
-  char *end = sbrk(PGSIZE*32);
+  int size=PGSIZE*32;
+  printf("size: %d\n", size);
+  char *end = sbrk(size);
   end = end + 9 * PGSIZE;
+  
   strcpy(end, "my very very very secret pw is:   ");
   strcpy(end+32, argv[1]);
+  printf("end: %s pointer %p\n", end, end);
   exit(0);
 }
 

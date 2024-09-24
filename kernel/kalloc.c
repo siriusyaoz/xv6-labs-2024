@@ -65,6 +65,7 @@ kfree(void *pa)
   acquire(&kmem.lock);
   r->next = kmem.freelist;
   kmem.freelist = r;
+  //printf("kfree(freelist): %p,next: %p\n", r, r->next);
   release(&kmem.lock);
 }
 
@@ -82,6 +83,7 @@ kalloc(void)
   r = kmem.freelist;
   if(r) {
     kmem.freelist = r->next;
+    //printf("kalloc: %p,next(freelist): %p\n", r, r->next);
   }
   release(&kmem.lock);
 #ifndef LAB_SYSCALL
