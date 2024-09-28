@@ -383,9 +383,9 @@ freewalk(pagetable_t pagetable)
       if((pte & PTE_SUPER)){
         continue;
       }
-      printf("sth wrong here i:%d, pte:%ld",i,pte);
-      pte=0;
-      //panic("freewalk: leaf");
+      //printf("sth wrong here i:%d, pte:%ld",i,pte);
+      //pte=0;
+      panic("freewalk: leaf");
     }
   }
   kfree((void*)pagetable);
