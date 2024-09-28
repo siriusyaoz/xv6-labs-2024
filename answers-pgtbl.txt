@@ -1,0 +1,3 @@
+kalloc.c中通过kint中的freerange-kfree/superkfree确定
+初始的kmem.kfreelist/superfreelist链表
+-----

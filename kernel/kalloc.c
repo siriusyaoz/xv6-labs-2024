@@ -18,15 +18,20 @@ struct run {
   struct run *next;
 };
 
+
 struct {
   struct spinlock lock;
   struct run *freelist;
+  struct run *superfreelist;
 } kmem;
+
 
 void
 kinit()
 {
   initlock(&kmem.lock, "kmem");
+  // 在kernel kint调用这个函数时将kmem.freelist/superfreelist的链表确定
+  // 可看kfree的实现
   freerange(end, (void*)PHYSTOP);
 }
 
@@ -34,9 +39,12 @@ void
 freerange(void *pa_start, void *pa_end)
 {
   char *p;
-  p = (char*)PGROUNDUP((uint64)pa_start);
-  for(; p + PGSIZE <= (char*)pa_end; p += PGSIZE)
+  p = (char *)PGROUNDUP((uint64)pa_start);
+  for (; p + PGSIZE <= (char *)(pa_end - SUPERPAGE_MEM); p += PGSIZE)
     kfree(p);
+  p = (char *)SUPERPGROUNDUP((uint64)p);
+  for (; p + SUPERPGSIZE <= (char *)pa_end; p += SUPERPGSIZE)
+    superkfree(p);
 }
 
 // Free the page of physical memory pointed at by pa,
@@ -79,4 +87,39 @@ kalloc(void)
   if(r)
     memset((char*)r, 5, PGSIZE); // fill with junk
   return (void*)r;
+}
+
+// 分配一个超级页
+void *
+superkalloc(void)
+{
+  struct run *r;
+  acquire(&kmem.lock);
+  r = kmem.superfreelist;
+  if (r)
+    kmem.superfreelist = r->next;
+  release(&kmem.lock);
+
+  if (r)
+    memset((char *)r, 5, SUPERPGSIZE); // fill with junk
+  return (void *)r;
+}
+
+// 释放一个超级页
+void superkfree(void *pa)
+{
+  struct run *r;
+
+  if (((uint64)pa % SUPERPGSIZE) != 0 || (char *)pa < end || (uint64)pa >= PHYSTOP)
+    panic("superkfree");
+
+  // Fill with junk to catch dangling refs.
+  memset(pa, 1, PGSIZE);
+
+  r = (struct run *)pa;
+
+  acquire(&kmem.lock);
+  r->next = kmem.superfreelist;
+  kmem.superfreelist = r;
+  release(&kmem.lock);
 }

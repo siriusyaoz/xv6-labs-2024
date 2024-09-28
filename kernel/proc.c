@@ -131,6 +131,12 @@ found:
     release(&p->lock);
     return 0;
   }
+  if((p->usyscall = (struct usyscall *)kalloc()) == 0){
+    freeproc(p);
+    release(&p->lock);
+    return 0;
+  }
+  p->usyscall->pid = p->pid;
 
   // An empty user page table.
   p->pagetable = proc_pagetable(p);
@@ -158,6 +164,9 @@ freeproc(struct proc *p)
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
+  if(p->usyscall)
+    kfree((void*)p->usyscall);
+  p->usyscall = 0;
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
   p->pagetable = 0;
@@ -201,6 +210,16 @@ proc_pagetable(struct proc *p)
     uvmfree(pagetable, 0);
     return 0;
   }
+  
+  //error handling?
+  if (mappages(pagetable, USYSCALL, PGSIZE,
+               (uint64)(p->usyscall), PTE_R | PTE_U) < 0)
+  {
+    uvmunmap(pagetable, TRAMPOLINE, 1, 0);
+    uvmunmap(pagetable, TRAPFRAME, 1, 0);
+    uvmfree(pagetable, 0);
+    return 0;
+  }
 
   return pagetable;
 }
@@ -212,6 +231,7 @@ proc_freepagetable(pagetable_t pagetable, uint64 sz)
 {
   uvmunmap(pagetable, TRAMPOLINE, 1, 0);
   uvmunmap(pagetable, TRAPFRAME, 1, 0);
+  uvmunmap(pagetable, USYSCALL, 1, 0);
   uvmfree(pagetable, sz);
 }
 
@@ -263,8 +283,30 @@ growproc(int n)
   struct proc *p = myproc();
 
   sz = p->sz;
+  uint64 oldsz = sz;
+  uint64 newsz=SUPERPGROUNDUP(sz);
+  int spgnum = n/SUPERPGSIZE;
+
   if(n > 0){
-    if((sz = uvmalloc(p->pagetable, sz, sz + n, PTE_W)) == 0) {
+    if(spgnum > 0 && sz<newsz){
+      if((newsz = uvmalloc(p->pagetable, sz, newsz, PTE_W)) == 0) {
+        return -1;
+      }
+      sz = newsz;
+      //注意这里一定要计时将进程p的sz更新，否则可能由于下一步的malloc/mallocsuper失败导致直接返回-1
+      //而p->sz未更新的情况。导致后面uvmfree时出错！
+      p->sz = sz;
+    }
+    if (spgnum > 0 && spgnum < 5){
+      if ((newsz = uvmalloc_super(p->pagetable, sz, sz + spgnum * SUPERPGSIZE, PTE_W)) == 0)
+      {
+        return -1;
+      }
+      sz = newsz;
+      //与上同理
+      p->sz = sz;
+    }
+    if((sz = uvmalloc(p->pagetable, sz, oldsz + n, PTE_W)) == 0) {
       return -1;
     }
   } else if(n < 0){
