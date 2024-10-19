@@ -10,3 +10,6 @@ after jal	6bc <printf>; the ra will be set to 34
 HE110 World
 
 在complierexploer上实验，gcc-14.1 ,发现若有一句printf("%d %d\n", f(8)+1, -1);总是返回x=3 y=0。不确定为什么
+
+10月15日 14:00-15:22 backtrace done
+10月20日 9：00- 20：30 sigalarm done
