@@ -67,12 +67,64 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
-  } else {
+  } else if( r_scause()==15){
+    struct proc* p=myproc();
+    uint64 va=r_stval();
+    if (va >= MAXVA){
+      setkilled(p);
+      goto err;
+    }
+    pte_t *pte = walk(p->pagetable, va, 0);
+
+    if (pte == 0 || (*pte & PTE_V) == 0 || (*pte & PTE_U) == 0 )
+    {
+      setkilled(p);
+      goto err;
+    }
+    if (*pte & PTE_COW){
+      uint64 pa = PTE2PA(*pte);
+      // book p49:This book-keeping allows an important optimization: if a process incurs a store page fault and the
+      //physical page is only referred to from that process’s page table, no copy is needed
+      if (get_ref((void *)pa) == 1)
+      {
+        // 清除COW位并设置写权限
+        *pte  &= ~PTE_COW;  // 清除COW位
+        *pte |= PTE_W;      // 设置写权限
+        sfence_vma();
+      }
+      else
+      {
+        char *mem = kalloc();
+        if (mem == 0)
+        {
+          printf("usertrap(): kalloc failed!pid=%d\n", p->pid);
+          printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
+          setkilled(p);
+        }
+        memmove(mem, (char *)pa, PGSIZE);
+
+        uint flags = PTE_FLAGS(*pte);
+        flags &= ~PTE_COW; 
+        flags |= PTE_W;    
+        *pte = PA2PTE(mem) | flags | PTE_V;
+        //dec_ref((void *)pa);
+        kfree((void *)pa);
+        sfence_vma();
+      }
+    }
+    else
+    {
+      printf("usertrap(): write to read-only page\n");
+      setkilled(p);
+    }
+  }
+  else {
     printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
     printf("            sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
     setkilled(p);
   }
 
+err:
   if(killed(p))
     exit(-1);
 
