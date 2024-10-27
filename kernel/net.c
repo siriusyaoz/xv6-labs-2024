@@ -352,9 +352,9 @@ ip_rx(char *buf, int len)
   //   return;}
 
   // UDP头部长度检查
-  // if (len < sizeof(struct eth) + sizeof(struct ip) + sizeof(struct udp)){
-  //   printf("not udp length\n"); 
-  //   return;}
+  if (len < sizeof(struct eth) + sizeof(struct ip) + sizeof(struct udp)){
+    printf("not udp length\n"); 
+    return;}
 
   struct udp *udphdr = (struct udp *)(iphdr + 1);
   int udp_len = ntohs(udphdr->ulen);
@@ -383,9 +383,7 @@ ip_rx(char *buf, int len)
   if (bp->pending_count >= MAX_PENDING_PACKETS)
   {
     printf("pending counts is larger than 16!\n");
-    kfree(buf);
-    release(&bp->lock);
-    return;
+    goto bad;
   }
 
   // 分配内存
@@ -394,9 +392,7 @@ ip_rx(char *buf, int len)
   if (data == 0)
   {
     printf("kalloc data failed\n");
-    kfree(buf);
-    release(&bp->lock);
-    return;
+    goto bad;
   }
 
   struct pending_packet *pp = kalloc();
@@ -404,9 +400,7 @@ ip_rx(char *buf, int len)
   {
     printf("kalloc pending packet failed\n");
     kfree(data);
-    kfree(buf);
-    release(&bp->lock);
-    return;
+    goto bad;
   }
 
   // 初始化新包
@@ -432,6 +426,7 @@ ip_rx(char *buf, int len)
   
   // 唤醒等待的进程
   wakeup(bp);
+bad:
   kfree(buf);
   release(&bp->lock);
 }
