@@ -91,8 +91,12 @@ e1000_init(uint32 *xregs)
   regs[E1000_IMS] = (1 << 7); // RXDW -- Receiver Descriptor Write Back
 }
 
-int
-e1000_transmit(char *buf, int len)
+// 发送环形缓冲区(TX Ring):
+// TDT(Transmit Descriptor Tail)：指向下一个可以写入的位置
+// TDH(Transmit Descriptor Head)：由硬件维护，指向下一个要发送的位置
+
+
+int e1000_transmit(char *buf, int len)
 {
   //
   // Your code here.
@@ -101,11 +105,51 @@ e1000_transmit(char *buf, int len)
   // the TX descriptor ring so that the e1000 sends it. Stash
   // a pointer so that it can be freed after send completes.
   //
+  // Acquire lock to prevent concurrent access
+  acquire(&e1000_lock);
 
-  
+  // Get current transmit descriptor index
+  int tail = regs[E1000_TDT];
+
+  // Check if transmit ring is full by checking DD (Descriptor Done) bit
+  if (!(tx_ring[tail].status & E1000_TXD_STAT_DD))
+  {
+    release(&e1000_lock);
+    return -1; // Ring is full
+  }
+
+  // Free last transmitted buffer if exists
+  if (tx_bufs[tail])
+  {
+    kfree(tx_bufs[tail]);
+  }
+
+  // Store buffer pointer for later freeing
+  tx_bufs[tail] = buf;
+
+  // Setup transmit descriptor
+  tx_ring[tail].addr = (uint64)buf;
+  tx_ring[tail].length = len;
+
+  // Set necessary command flags:
+  // EOP - End of Packet
+  // RS - Report Status
+  tx_ring[tail].cmd = E1000_TXD_CMD_EOP | E1000_TXD_CMD_RS;
+
+  // Clear status
+  tx_ring[tail].status = 0;
+
+  // Update tail pointer
+  regs[E1000_TDT] = (tail + 1) % TX_RING_SIZE;
+
+  release(&e1000_lock);
   return 0;
 }
 
+// 接收环形缓冲区(RX Ring) :
+
+// RDT(Receive Descriptor Tail)：软件维护，指向最后一个被处理的描述符
+// RDH(Receive Descriptor Head)：由硬件维护，指向下一个将被写入的位置
 static void
 e1000_recv(void)
 {
@@ -115,7 +159,44 @@ e1000_recv(void)
   // Check for packets that have arrived from the e1000
   // Create and deliver a buf for each packet (using net_rx()).
   //
+  // Get current receive descriptor position
+  while (1)
+  {
+    // Get next descriptor to check
+    int tail = (regs[E1000_RDT] + 1) % RX_RING_SIZE;
 
+    // Check if new packet is available
+    if (!(rx_ring[tail].status & E1000_RXD_STAT_DD))
+    {
+      break;
+    }
+
+    // If packet has no errors
+    if (rx_ring[tail].status & E1000_RXD_STAT_EOP)
+    {
+      // Get the received packet length
+      int length = rx_ring[tail].length;
+
+      // Deliver packet to network stack
+      net_rx(rx_bufs[tail], length);
+
+      // Allocate new buffer for this descriptor
+      // Then allocate a new buffer using kalloc() to replace the one just given to net_rx()
+      rx_bufs[tail] = kalloc();
+      if (!rx_bufs[tail])
+      {
+        panic("e1000_recv: kalloc failed");
+      }
+
+      // Update descriptor with new buffer
+      // Clear the descriptor's status bits to zero.
+      rx_ring[tail].addr = (uint64)rx_bufs[tail];
+      rx_ring[tail].status = 0;
+    }
+
+    // Update tail register to mark this packet as processed
+    regs[E1000_RDT] = tail;
+  }
 }
 
 void
