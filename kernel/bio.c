@@ -29,7 +29,7 @@ void binit(void)
     for (int i = 0; i < NBUCKETS; i++)
     {
         snprintf(bcache.bucket[i].name, 16, "bcache_bucket%d", i);
-        printf("bucket name is %s\n",bcache.bucket[i].name);
+        //printf("bucket name is %s\n",bcache.bucket[i].name);
         initlock(&bcache.bucket[i].lock, bcache.bucket[i].name);
     }
     for (b = bcache.buf; b < bcache.buf + NBUF; b++)
