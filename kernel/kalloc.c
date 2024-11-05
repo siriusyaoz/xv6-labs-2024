@@ -62,13 +62,13 @@ kfree(void *pa)
   r = (struct run*)pa;
   push_off();
   int cpu_id = cpuid();
-  pop_off();
   acquire(&kmem[cpu_id].lock);
   r->next = kmem[cpu_id].freelist;
   kmem[cpu_id].freelist = r;
   // if(cpu_id)
   //   printf("kfree in cpuid %d\n",cpu_id);
   release(&kmem[cpu_id].lock);
+  pop_off();
 }
 
 // Allocate one 4096-byte page of physical memory.
