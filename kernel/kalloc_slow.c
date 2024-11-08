@@ -103,38 +103,71 @@ kalloc(void)
             // for (int i = 0; i <NCPU; i++)
             // {
             //   if(i==cpu_id){continue;}
-            // steal half everytime with nfree
+            //steal batchsize everytime with nfree
             acquire(&kmem[i].lock);
             r = kmem[i].freelist;
             if (r)
             {
-                if (kmem[i].nfree == 1){
-                    kmem[i].nfree=0;
-                    kmem[i].freelist=0;
+                if (kmem[i].nfree <= BATCH_SIZE)
+                {
+                    kmem[i].nfree -=1;
+                    kmem[i].freelist = r->next;
                     release(&kmem[i].lock);
                     break;
-                }else{
-                    int count = 0;
-                    head=r;
-                    while(count< kmem[i].nfree/2){
-                        count ++;
-                        tail=head;
-                        head=head->next;
-                    }
-                    //printf("count is %d,cpu id %d borrrow from id %d,kmem[i].nfree is %d\n", count, cpu_id, i, kmem[i].nfree);
-                    kmem[i].nfree-=count;
-                    kmem[i].freelist=head;
-                    tail->next = 0;
+                }
+                else
+                {
+                    tail = r->next->next;
+                    head = tail->next;
+
+                    // printf("count is %d,cpu id %d borrrow from id %d,kmem[i].nfree is %d\n", count, cpu_id, i, kmem[i].nfree);
+                    kmem[i].nfree -= BATCH_SIZE;
+                    kmem[i].freelist = head;
                     release(&kmem[i].lock);
+                    tail->next = 0;
 
                     acquire(&kmem[cpu_id].lock);
                     kmem[cpu_id].freelist = r->next;
-                    kmem[cpu_id].nfree=count-1;
+                    kmem[cpu_id].nfree = BATCH_SIZE-1;
                     release(&kmem[cpu_id].lock);
                     break;
                 }
             }
             release(&kmem[i].lock);
+            // steal half everytime with nfree
+            // acquire(&kmem[i].lock);
+            // r = kmem[i].freelist;
+            // if (r)
+            // {
+            //     if (kmem[i].nfree == 1){
+            //         kmem[i].nfree=0;
+            //         kmem[i].freelist=0;
+            //         release(&kmem[i].lock);
+            //         break;
+            //     }else{
+            //         int count = 0;
+            //         head=r;
+            //         while(count< kmem[i].nfree/2){
+            //             count ++;
+            //             tail=head;
+            //             head=head->next;
+            //         }
+            //         //printf("count is %d,cpu id %d borrrow from id %d,kmem[i].nfree is %d\n", count, cpu_id, i, kmem[i].nfree);
+            //         kmem[i].nfree-=count;
+            //         kmem[i].freelist=head;
+            //         tail->next = 0;
+            //         release(&kmem[i].lock);
+
+            //         acquire(&kmem[cpu_id].lock);
+            //         kmem[cpu_id].freelist = r->next;
+            //         kmem[cpu_id].nfree=count-1;
+            //         release(&kmem[cpu_id].lock);
+            //         break;
+            //     }
+            // }
+            // release(&kmem[i].lock);
+
+
             // steal half everytime old
             // acquire(&kmem[i].lock);
             // r = kmem[i].freelist;
