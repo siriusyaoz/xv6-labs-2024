@@ -109,7 +109,7 @@ write_head(void)
   for (i = 0; i < log.lh.n; i++) {
     hb->block[i] = log.lh.block[i];
   }
-  bwrite(buf);
+  bwrite(buf); //the real commit point
   brelse(buf);
 }
 
@@ -182,7 +182,7 @@ write_log(void)
 
   for (tail = 0; tail < log.lh.n; tail++) {
     struct buf *to = bread(log.dev, log.start+tail+1); // log block
-    struct buf *from = bread(log.dev, log.lh.block[tail]); // cache block
+    struct buf *from = bread(log.dev, log.lh.block[tail]); // cache block //bread得到的是bget返回的已经缓存的block
     memmove(to->data, from->data, BSIZE);
     bwrite(to);  // write the log
     brelse(from);
