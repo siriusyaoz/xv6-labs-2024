@@ -98,7 +98,6 @@ allocpid()
   pid = nextpid;
   nextpid = nextpid + 1;
   release(&pid_lock);
-
   return pid;
 }
 
@@ -131,6 +130,7 @@ found:
     release(&p->lock);
     return 0;
   }
+
 
   // An empty user page table.
   p->pagetable = proc_pagetable(p);
@@ -202,6 +202,7 @@ proc_pagetable(struct proc *p)
     return 0;
   }
 
+
   return pagetable;
 }
 
@@ -263,6 +264,7 @@ growproc(int n)
   struct proc *p = myproc();
 
   sz = p->sz;
+  
   if(n > 0){
     if((sz = uvmalloc(p->pagetable, sz, sz + n, PTE_W)) == 0) {
       return -1;
@@ -287,7 +289,7 @@ fork(void)
   if((np = allocproc()) == 0){
     return -1;
   }
-
+  
   // Copy user memory from parent to child.
   if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
     freeproc(np);
@@ -295,6 +297,7 @@ fork(void)
     return -1;
   }
   np->sz = p->sz;
+
 
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
@@ -313,13 +316,14 @@ fork(void)
   pid = np->pid;
 
   release(&np->lock);
-
+  
   acquire(&wait_lock);
   np->parent = p;
   release(&wait_lock);
 
   acquire(&np->lock);
   np->state = RUNNABLE;
+
   release(&np->lock);
 
   return pid;
@@ -360,6 +364,7 @@ exit(int status)
     }
   }
 
+  
   begin_op();
   iput(p->cwd);
   end_op();
@@ -454,28 +459,33 @@ scheduler(void)
     // processes are waiting.
     intr_on();
 
-    int found = 0;
+    int nproc = 0;
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
+      if(p->state != UNUSED) {
+        nproc++;
+      }
       if(p->state == RUNNABLE) {
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
+        
         swtch(&c->context, &p->context);
 
         // Process is done running for now.
         // It should have changed its p->state before coming back.
         c->proc = 0;
-        found = 1;
       }
       release(&p->lock);
     }
-    if(found == 0) {
+    if(nproc <= 2) {   // only init and sh exist
       // nothing to run; stop running on this core until an interrupt.
       intr_on();
+#ifndef LAB_FS
       asm volatile("wfi");
+#endif
     }
   }
 }
@@ -524,7 +534,7 @@ void
 forkret(void)
 {
   static int first = 1;
-
+  
   // Still holding p->lock from scheduler.
   release(&myproc()->lock);
 
@@ -693,3 +703,6 @@ procdump(void)
     printf("\n");
   }
 }
+
+
+
