@@ -56,3 +56,38 @@ e) 解除页面保护
 ### mmap实验
 #### 时间
 2024/11/19 9:30开始
+2014/11/20 9:00ALL TEST PASED
+```
+make grade
+== Test running mmaptest == 
+$ make qemu-gdb
+(6.4s) 
+== Test   mmaptest: mmap basic == 
+  mmaptest: mmap basic: OK 
+== Test   mmaptest: mmap private == 
+  mmaptest: mmap private: OK 
+== Test   mmaptest: mmap read-only == 
+  mmaptest: mmap read-only: OK 
+== Test   mmaptest: mmap read/write == 
+  mmaptest: mmap read/write: OK 
+== Test   mmaptest: mmap dirty == 
+  mmaptest: mmap dirty: OK 
+== Test   mmaptest: not-mapped unmap == 
+  mmaptest: not-mapped unmap: OK 
+== Test   mmaptest: lazy access == 
+  mmaptest: lazy access: OK 
+== Test   mmaptest: two files == 
+  mmaptest: two files: OK 
+== Test   mmaptest: fork_test == 
+  mmaptest: fork_test: OK 
+== Test   mmaptest: munmap_noaccess == 
+  mmaptest: munmap_noaccess: OK 
+== Test   mmaptest: read_only_write == 
+  mmaptest: read_only_write: OK 
+== Test usertests == 
+$ make qemu-gdb
+usertests: OK (101.8s) 
+== Test time == 
+time: OK 
+Score: 170/170
+```

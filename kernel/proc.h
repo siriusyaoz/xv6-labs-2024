@@ -1,3 +1,4 @@
+#include "defs.h"
 // Saved registers for kernel context switches.
 struct context {
   uint64 ra;
@@ -81,6 +82,17 @@ struct trapframe {
 
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
+struct vma{
+  uint64 addr;
+  size_t len;
+  int prot;
+  int flags;
+  int fd;
+  off_t offset;
+  struct file *vfile;
+  int npages;
+};
+
 // Per-process state
 struct proc {
   struct spinlock lock;
@@ -104,4 +116,5 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  struct vma pvma[16];
 };

@@ -58,6 +58,14 @@ argint(int n, int *ip)
 {
   *ip = argraw(n);
 }
+void argsizet(int n, size_t *ip)
+{
+  *ip = argraw(n);
+}
+void arglong(int n, long *ip)
+{
+  *ip = argraw(n);
+}
 
 // Retrieve an argument as a pointer.
 // Doesn't check for legality, since
@@ -101,7 +109,8 @@ extern uint64 sys_unlink(void);
 extern uint64 sys_link(void);
 extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
-
+extern uint64 sys_mmap(void);
+extern uint64 sys_munmap(void);
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
 static uint64 (*syscalls[])(void) = {
@@ -126,6 +135,8 @@ static uint64 (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
+[SYS_mmap]    sys_mmap,
+[SYS_munmap]  sys_munmap,
 };
 
 void

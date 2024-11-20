@@ -5,6 +5,10 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "fs.h"
+#include "sleeplock.h"
+#include "file.h"
+#include "fcntl.h"
 
 struct spinlock tickslock;
 uint ticks;
@@ -67,7 +71,54 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
-  } else {
+  } else if(r_scause()==13 || r_scause()==15){
+    struct proc *p = myproc();
+    uint64 va = r_stval();
+    va=PGROUNDDOWN(va);
+    if (va >= MAXVA)
+    {
+      setkilled(p);
+      exit(-1);
+    }
+    int i=0;
+    for(; i<16 ; i++){
+      struct vma trapvma=p->pvma[i];
+      if (va >= trapvma.addr && va < trapvma.addr + trapvma.len){
+        char* mem=kalloc();
+        memset(mem, 0, PGSIZE);
+        struct inode* ip=trapvma.vfile->ip;
+        int perm = PTE_U; // 用户页面必须有这个标志
+        if (trapvma.prot & PROT_READ)
+          perm |= PTE_R;
+        if (trapvma.prot & PROT_WRITE){
+          perm |= PTE_W;
+        }else{
+          if(r_scause()==15){
+            setkilled(p);
+            exit(-1);
+          }
+        }
+        // if (trapvma.prot & PROT_EXEC)
+        //   perm |= PTE_X;
+        //是否需要加上offset?已经假设offset为0
+        uint off= va - trapvma.addr + trapvma.offset;
+        //
+        ilock(ip);
+        readi(ip,0,(uint64)mem,off,PGSIZE);
+        iunlock(ip);
+        mappages(p->pagetable,va,PGSIZE,(uint64)mem,perm);
+        printf("ussertrap:i is %d,va is 0x%lx,off is %d,r scause is %ld\n", i, va,off,r_scause());
+        // sfence_vma();
+        break;
+      }
+    }
+    if(i==16){
+      setkilled(p);
+      exit(-1);
+    }
+    //pte_t *pte = walk(p->pagetable, va, 0);
+  }
+  else {
     printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
     printf("            sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
     setkilled(p);

@@ -148,6 +148,9 @@ void            argaddr(int, uint64 *);
 int             fetchstr(uint64, char*, int);
 int             fetchaddr(uint64, uint64*);
 void            syscall();
+void            argsizet(int, size_t *);
+void            arglong(int, long *);
+
 
 // trap.c
 extern uint     ticks;
@@ -187,6 +190,7 @@ void            vmprint(pagetable_t);
 #ifdef LAB_PGTBL
 pte_t*          pgpte(pagetable_t, uint64);
 #endif
+int             munmap(int i, struct proc *, uint64, int);
 
 // plic.c
 void            plicinit(void);

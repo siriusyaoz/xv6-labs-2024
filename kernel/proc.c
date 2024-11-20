@@ -294,6 +294,14 @@ fork(void)
     release(&np->lock);
     return -1;
   }
+  for (int i = 0; i < 16; i++)
+  {
+    np->pvma[i] = p->pvma[i];
+    if (p->pvma[i].vfile)
+    {
+      np->pvma[i].vfile = filedup(p->pvma[i].vfile);
+    }
+  }
   np->sz = p->sz;
 
   // copy saved user registers.
@@ -357,6 +365,12 @@ exit(int status)
       struct file *f = p->ofile[fd];
       fileclose(f);
       p->ofile[fd] = 0;
+    }
+  }
+
+  for(int i=0;i<16;i++){
+    if(p->pvma[i].npages!=0){
+      munmap(i,p,p->pvma[i].addr,p->pvma[i].len);
     }
   }
 
