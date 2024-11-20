@@ -237,6 +237,7 @@ munmap(int i, struct proc *p, uint64 addr,int len)
   if (ptvma->npages == 0)
   {
     // do_free=1;
+    //ref cnt -1
     fileclose(ptvma->vfile);
     ptvma->vfile = 0;
   };

@@ -91,3 +91,40 @@ usertests: OK (101.8s)
 time: OK 
 Score: 170/170
 ```
+
+#### 实验分析
+mmap中有很多设计的细节需要考虑。
+##### VMA的设计以及在mmap/munmap下的状态变化
+vma数据结构设计如下：
+```c
+struct vma{
+  uint64 addr;//vma的开头地址
+  size_t len; //vma的区域长度，在mmaptest里都是PGSIZE的倍数，为简化问题，使用这一假设
+  int prot; //read/write/exec
+  int flags;  //map_Shared/Private
+  int fd;
+  off_t offset; //假定了file的offset为0，因此vma的offset就是addr与file开头的offset
+  struct file *vfile;
+  int npages; //vma的pages数量
+};
+```
+
+随着munmap的调用，可能vma的addr也会随之变化。相应的npages/len/offset也要随之变化。参见下图
+![mmap.png](./mmap.png)
+这里实现的是lazyily mapped。只有当map到的Page真的需要被读写时才会分配内存。   
+mmap的实现很简单，将参数记录到VMA中、更新file refcnt、更新process size、检查mmap权限是否合理。      
+munmap实现中的循环体内的数字计算可以参考上图。思路是    
+- 首先在unmap的区域里找到已经在pgtbl里分配内存的页
+- 计算当前页的位置与file开头的offset;计算要写入file的数据大小n（可能小于一个页，比如file的末尾可能占据不到一个页
+- 模仿filewrite函数，实现将虚拟地址为va,写入位置为文件的offset,写入size为n的munmap_filewrite函数
+munmap也要更新VMA的数据结构。
+##### 权限管理
+在通过调用mmap时，要注意map_shared和prot_write同时满足时，file必须是writable的。  
+在trap程序中，r_scause()=15意味着store page fault,这时要判断是否有prot-Write的权限。    
+将写页（内存）和写入文件分开来。    
+在munmap时需要将dirty page写入文件中。但是首先要判断can_write这个权限
+##### 其他细节
+1. 用户页面必须有PTE_U这个标志
+2. 当unmap的虚拟地址或trap到的虚拟地址不在VMA结构的已经map的区域中，报错。
+3. 在test fork中, uvmcopy/uvmunmap时遇到PTE not valid的页面，don't panic,just continue。这是lazily mapped导致的。
+
